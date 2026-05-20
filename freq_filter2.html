@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frequency Filter Studio</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+:root {
+  --bg:#f2f0eb; --bg2:#e8e5de; --bg3:#dedad1;
+  --surface:#ffffff; --ink:#1a1814; --ink2:#6b6760; --ink3:#a8a49e;
+  --accent:#2f6bc8; --border:rgba(26,24,20,.10); --border2:rgba(26,24,20,.06);
+  --mono:'Space Mono',monospace; --sans:'DM Sans',sans-serif; --radius:6px;
+  --shadow:0 2px 12px rgba(26,24,20,.08),0 1px 3px rgba(26,24,20,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:100vh;font-size:13px;line-height:1.5;}
+header{background:var(--ink);color:#fff;padding:0 28px;height:50px;display:flex;align-items:center;gap:16px;}
+header h1{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.htag{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.05em;margin-left:auto;}
+.app{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 50px);}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+.sec-head{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);padding-bottom:5px;border-bottom:1px solid var(--border);}
+.upload-zone{border:1.5px dashed var(--border2);border-radius:var(--radius);padding:18px 10px;text-align:center;cursor:pointer;background:var(--bg2);position:relative;transition:all .2s;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(47,107,200,.04);}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-hint{font-size:11px;color:var(--ink2);line-height:1.6;}
+.upload-hint strong{color:var(--accent);}
+.thumb-wrap{display:none;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:#000;aspect-ratio:1;max-height:160px;}
+.thumb-wrap img{width:100%;height:100%;object-fit:contain;display:block;}
+.divider{height:1px;background:var(--border);}
+.sl-row{display:flex;align-items:center;gap:8px;margin-top:6px;}
+.sl-label{font-size:11px;color:var(--ink2);min-width:52px;}
+input[type=range]{-webkit-appearance:none;flex:1;height:2px;background:var(--bg3);border-radius:1px;outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--ink);cursor:pointer;transition:background .15s;}
+input[type=range]::-webkit-slider-thumb:hover{background:var(--accent);}
+.sl-val{font-family:var(--mono);font-size:10px;color:var(--ink);min-width:30px;text-align:right;}
+.ftype-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.ftbtn{font-family:var(--mono);font-size:10px;padding:7px 4px;border-radius:5px;border:1px solid var(--border);background:var(--bg2);color:var(--ink2);cursor:pointer;transition:all .15s;text-align:center;}
+.ftbtn:hover{border-color:var(--accent);color:var(--accent);}
+.ftbtn.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700;}
+.run-btn{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .15s;}
+.run-btn:hover{background:#1f4f99;transform:translateY(-1px);box-shadow:var(--shadow);}
+.run-btn:active{transform:translateY(0);}
+.content{padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;}
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--ink3);text-align:center;padding:60px 20px;}
+.empty-icon{font-size:44px;opacity:.25;}
+.empty-title{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
+.empty-desc{font-size:12px;line-height:1.7;max-width:280px;}
+.triple-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.compare-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;}
+.result-card.orig-card{border-top:3px solid var(--ink3);}
+.result-card.lpf-card{border-top:3px solid #2a9e6a;}
+.result-card.hpf-card{border-top:3px solid #c84b2f;}
+.result-card.spec-card{border-top:3px solid var(--accent);}
+.card-header{padding:8px 10px 6px;}
+.card-type{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px;color:var(--ink3);}
+.card-type.lpf{color:#2a9e6a;} .card-type.hpf{color:#c84b2f;} .card-type.spec{color:var(--accent);}
+.card-name{font-size:12px;font-weight:600;color:var(--ink);}
+.card-desc{font-size:10px;color:var(--ink2);margin-top:2px;}
+.card-canvas{flex:1;background:#111;display:flex;align-items:center;justify-content:center;}
+.card-canvas canvas{display:block;width:100%;height:auto;}
+.card-footer{padding:5px 10px;border-top:1px solid var(--border2);font-family:var(--mono);font-size:9px;color:var(--ink3);display:flex;justify-content:space-between;}
+.info-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:10px;color:var(--ink2);flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:5px;}
+.legend-pip{width:10px;height:3px;border-radius:2px;}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Frequency Filter Studio</h1>
+  <span class="htag">周波数フィルタ（FFT ローパス / ハイパス）ツール</span>
+</header>
+<div class="app">
+  <aside class="sidebar">
+
+    <div>
+      <p class="sec-head">入力画像</p>
+      <div style="margin-top:8px;">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="image/*">
+          <div style="font-size:20px;opacity:.4;margin-bottom:5px;">⬆</div>
+          <div class="upload-hint">クリックまたは<strong>ドラッグ＆ドロップ</strong></div>
+        </div>
+      </div>
+      <div class="thumb-wrap" id="thumbWrap" style="margin-top:8px;"><img id="thumbImg" alt=""></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <p class="sec-head" style="color:var(--accent);">周波数フィルタ設定</p>
+      <div style="margin-top:8px;">
+        <p style="font-size:10px;color:var(--ink3);margin-bottom:6px;">フィルタタイプ（複数選択可）</p>
+        <div class="ftype-grid">
+          <button class="ftbtn active" id="ft_lpf" onclick="toggleFilter('lpf')">ローパス<br><span style="font-size:9px;opacity:.8;">低周波を通過</span></button>
+          <button class="ftbtn active" id="ft_hpf" onclick="toggleFilter('hpf')">ハイパス<br><span style="font-size:9px;opacity:.8;">高周波を通過</span></button>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:11px;color:var(--ink2);">LPF カットオフ半径</span>
+          <span class="sl-val" id="vLPF">30</span>
+        </div>
+        <input type="range" id="slLPF" min="1" max="160" value="30" step="1" style="width:100%;">
+        <div style="font-size:10px;color:var(--ink3);margin-top:3px;">小さい → 強いぼかし / 大きい → 元画像に近い</div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:11px;color:var(--ink2);">HPF カットオフ半径</span>
+          <span class="sl-val" id="vHPF">20</span>
+        </div>
+        <input type="range" id="slHPF" min="1" max="160" value="20" step="1" style="width:100%;">
+        <div style="font-size:10px;color:var(--ink3);margin-top:3px;">小さい → エッジ多く残る / 大きい → エッジのみ</div>
+      </div>
+
+      <div style="margin-top:14px;padding:10px 12px;background:var(--bg2);border-radius:var(--radius);font-size:10px;color:var(--ink3);line-height:1.7;">
+        <strong style="color:var(--ink2);">アルゴリズム：</strong>Cooley-Tukey 2D FFT<br>
+        グレースケール変換 → 2D FFT → 周波数マスク → 2D IFFT<br>
+        画素数の2乗×log(画素数) の計算量
+      </div>
+    </div>
+
+      <div class="toggle-row" style="margin-top:12px;">
+        <span>カラーで処理（RGBチャンネル別）</span>
+        <label class="toggle"><input type="checkbox" id="toggleColor"><span class="toggle-track"></span></label>
+      </div>
+    <div class="divider"></div>
+    <button class="run-btn" onclick="runFilter()">▶ フィルタ実行</button>
+    <div style="font-size:10px;color:var(--ink3);line-height:1.7;">
+      画像を選択しパラメータを設定後、「フィルタ実行」を押してください。元画像・スペクトル・フィルタ結果を並べて表示します。
+    </div>
+  </aside>
+
+  <main class="content" id="mainContent">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">◈</div>
+      <p class="empty-title">Frequency Filter Studio</p>
+      <p class="empty-desc">画像を読み込んでカットオフ半径を設定し、「フィルタ実行」を押してください。パワースペクトルとフィルタ結果を並べて確認できます。</p>
+    </div>
+  </main>
+</div>
+<canvas id="srcCanvas" style="display:none;"></canvas>
+
+<script>
+let srcImageData = null, srcW = 0, srcH = 0;
+let showLPF = true, showHPF = true;
+
+function toggleFilter(type) {
+  if (type === 'lpf') {
+    showLPF = !showLPF;
+    document.getElementById('ft_lpf').classList.toggle('active', showLPF);
+  } else {
+    showHPF = !showHPF;
+    document.getElementById('ft_hpf').classList.toggle('active', showHPF);
+  }
+}
+
+
+function setSourceImage(canvas) {
+  const maxDim=256;
+  let dw=canvas.width, dh=canvas.height;
+  if(dw>maxDim||dh>maxDim){const sc=maxDim/Math.max(dw,dh);dw=Math.round(dw*sc);dh=Math.round(dh*sc);}
+  const sc=document.getElementById('srcCanvas');
+  sc.width=dw; sc.height=dh;
+  sc.getContext('2d').drawImage(canvas,0,0,dw,dh);
+  srcImageData=sc.getContext('2d').getImageData(0,0,dw,dh);
+  srcW=dw; srcH=dh;
+  const tw=document.getElementById('thumbWrap'), ti=document.getElementById('thumbImg');
+  ti.src=canvas.toDataURL(); tw.style.display='block';
+}
+
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const cv=document.createElement('canvas'); cv.width=img.width; cv.height=img.height;
+      cv.getContext('2d').drawImage(img,0,0); setSourceImage(cv);
+    }; img.src=ev.target.result;
+  }; reader.readAsDataURL(file);
+});
+
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
+zone.addEventListener('drop',e=>{
+  e.preventDefault(); zone.classList.remove('drag');
+  const file=e.dataTransfer.files[0];
+  if(!file||!file.type.startsWith('image/')) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const cv=document.createElement('canvas'); cv.width=img.width; cv.height=img.height;
+      cv.getContext('2d').drawImage(img,0,0); setSourceImage(cv);
+    }; img.src=ev.target.result;
+  }; reader.readAsDataURL(file);
+});
+
+['LPF','HPF'].forEach(id=>{
+  document.getElementById('sl'+id).addEventListener('input',function(){
+    document.getElementById('v'+id).textContent=this.value;
+  });
+});
+
+// ---- FFT (Cooley-Tukey radix-2) ----
+function fft1d(re, im, invert) {
+  const N=re.length;
+  for(let i=1,j=0;i<N;i++){
+    let bit=N>>1;
+    for(;j&bit;bit>>=1) j^=bit;
+    j^=bit;
+    if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t;}
+  }
+  for(let len=2;len<=N;len<<=1){
+    const ang=2*Math.PI/len*(invert?1:-1);
+    const wRe=Math.cos(ang), wIm=Math.sin(ang);
+    for(let i=0;i<N;i+=len){
+      let curRe=1, curIm=0;
+      const half=len>>1;
+      for(let j=0;j<half;j++){
+        const uRe=re[i+j], uIm=im[i+j];
+        const vRe=re[i+j+half]*curRe-im[i+j+half]*curIm;
+        const vIm=re[i+j+half]*curIm+im[i+j+half]*curRe;
+        re[i+j]=uRe+vRe; im[i+j]=uIm+vIm;
+        re[i+j+half]=uRe-vRe; im[i+j+half]=uIm-vIm;
+        const nr=curRe*wRe-curIm*wIm; curIm=curRe*wIm+curIm*wRe; curRe=nr;
+      }
+    }
+  }
+  if(invert){for(let i=0;i<N;i++){re[i]/=N;im[i]/=N;}}
+}
+
+function nextPow2(n){let p=1;while(p<n)p<<=1;return p;}
+
+function fft2d(gray, W, H) {
+  const PW=nextPow2(W), PH=nextPow2(H);
+  const Re=new Float64Array(PW*PH), Im=new Float64Array(PW*PH);
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) Re[y*PW+x]=gray[y*W+x];
+  const rb=new Float64Array(PW), ri=new Float64Array(PW);
+  for(let y=0;y<PH;y++){
+    rb.set(Re.subarray(y*PW,(y+1)*PW)); ri.set(Im.subarray(y*PW,(y+1)*PW));
+    fft1d(rb,ri,false); Re.set(rb,y*PW); Im.set(ri,y*PW);
+  }
+  const cb=new Float64Array(PH), ci=new Float64Array(PH);
+  for(let x=0;x<PW;x++){
+    for(let y=0;y<PH;y++){cb[y]=Re[y*PW+x];ci[y]=Im[y*PW+x];}
+    fft1d(cb,ci,false);
+    for(let y=0;y<PH;y++){Re[y*PW+x]=cb[y];Im[y*PW+x]=ci[y];}
+  }
+  return {Re,Im,PW,PH};
+}
+
+function ifft2d(Re, Im, PW, PH, W, H) {
+  const cb=new Float64Array(PH), ci=new Float64Array(PH);
+  for(let x=0;x<PW;x++){
+    for(let y=0;y<PH;y++){cb[y]=Re[y*PW+x];ci[y]=Im[y*PW+x];}
+    fft1d(cb,ci,true);
+    for(let y=0;y<PH;y++){Re[y*PW+x]=cb[y];Im[y*PW+x]=ci[y];}
+  }
+  const rb=new Float64Array(PW), ri=new Float64Array(PW);
+  const out=new Float32Array(W*H);
+  for(let y=0;y<H;y++){
+    rb.set(Re.subarray(y*PW,(y+1)*PW)); ri.set(Im.subarray(y*PW,(y+1)*PW));
+    fft1d(rb,ri,true);
+    for(let x=0;x<W;x++) out[y*W+x]=rb[x];
+  }
+  return out;
+}
+
+function freqFilter(gray, W, H, mode, radius) {
+  const {Re,Im,PW,PH}=fft2d(gray,W,H);
+  // Save original for spectrum
+  const magOrig=new Float32Array(PW*PH);
+  for(let i=0;i<PW*PH;i++) magOrig[i]=Math.log1p(Math.sqrt(Re[i]*Re[i]+Im[i]*Im[i]));
+
+  for(let v=0;v<PH;v++) for(let u=0;u<PW;u++){
+    const fu=u<=PW>>1?u:u-PW, fv=v<=PH>>1?v:v-PH;
+    const r=Math.sqrt(fu*fu+fv*fv);
+    const pass=mode==='low'?r<=radius:r>radius;
+    if(!pass){Re[v*PW+u]=0;Im[v*PW+u]=0;}
+  }
+  const raw=ifft2d(Re,Im,PW,PH,W,H);
+  let mn=Infinity,mx=-Infinity;
+  for(const v of raw){if(v<mn)mn=v;if(v>mx)mx=v;}
+  const rng=mx-mn||1;
+  const out=new Float32Array(raw.length);
+  for(let i=0;i<out.length;i++) out[i]=(raw[i]-mn)/rng*255;
+  return {out, magOrig, PW, PH};
+}
+
+function toGray(imageData) {
+  const W=imageData.width,H=imageData.height,gray=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++) gray[i]=0.299*imageData.data[i*4]+0.587*imageData.data[i*4+1]+0.114*imageData.data[i*4+2];
+  return {gray,W,H};
+}
+
+function grayToCanvas(gray, W, H) {
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d'), id=ctx.createImageData(W,H);
+  for(let i=0;i<W*H;i++){
+    const v=Math.round(Math.max(0,Math.min(255,gray[i])));
+    id.data[i*4]=v;id.data[i*4+1]=v;id.data[i*4+2]=v;id.data[i*4+3]=255;
+  }
+  ctx.putImageData(id,0,0); return cv;
+}
+
+function extractChannel(imageData, ch) {
+  const W=imageData.width, H=imageData.height, out=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++) out[i]=imageData.data[i*4+ch];
+  return out;
+}
+
+function rgbToCanvas(R, G, B, W, H) {
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d'), id=ctx.createImageData(W,H);
+  for(let i=0;i<W*H;i++){
+    id.data[i*4]  =Math.round(Math.max(0,Math.min(255,R[i])));
+    id.data[i*4+1]=Math.round(Math.max(0,Math.min(255,G[i])));
+    id.data[i*4+2]=Math.round(Math.max(0,Math.min(255,B[i])));
+    id.data[i*4+3]=255;
+  }
+  ctx.putImageData(id,0,0); return cv;
+}
+
+function origToCanvas(imageData) {
+  const cv=document.createElement('canvas'); cv.width=imageData.width; cv.height=imageData.height;
+  cv.getContext('2d').putImageData(imageData,0,0); return cv;
+}
+
+// Color freq filter: process R,G,B channels separately
+function freqFilterColor(imageData, W, H, mode, radius) {
+  const channels=[0,1,2].map(ch=>{
+    const gray=extractChannel(imageData,ch);
+    return freqFilter(gray,W,H,mode,radius);
+  });
+  return {
+    R: channels[0].out, G: channels[1].out, B: channels[2].out,
+    magOrig: channels[0].magOrig, PW: channels[0].PW, PH: channels[0].PH
+  };
+}
+
+// Draw power spectrum (fftshifted) with mask circle overlay
+function drawSpectrum(magOrig, PW, PH, W, H, mode, radius) {
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d'), id=ctx.createImageData(W,H);
+  // fftshift + scale to display size
+  let maxM=0;
+  for(let i=0;i<PW*PH;i++) if(magOrig[i]>maxM) maxM=magOrig[i];
+  const hw=PW>>1, hh=PH>>1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    const su=Math.round((x/W)*PW), sv=Math.round((y/H)*PH);
+    const su2=(su+hw)%PW, sv2=(sv+hh)%PH;
+    const m=magOrig[sv2*PW+su2]/(maxM||1);
+    const v=Math.round(Math.pow(m,0.5)*255);
+    const i2=(y*W+x)*4;
+    id.data[i2]=v; id.data[i2+1]=v; id.data[i2+2]=v; id.data[i2+3]=255;
+  }
+  ctx.putImageData(id,0,0);
+  // Draw cutoff circle
+  const cx=W/2, cy=H/2;
+  const scaleR=radius*(W/PW);
+  ctx.beginPath(); ctx.arc(cx,cy,scaleR,0,Math.PI*2);
+  if(mode==='low'){
+    ctx.strokeStyle='rgba(42,158,106,0.9)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='rgba(42,158,106,0.08)'; ctx.fill();
+  } else {
+    ctx.strokeStyle='rgba(200,75,47,0.9)'; ctx.lineWidth=1.5; ctx.stroke();
+    // invert: shade inside
+    ctx.fillStyle='rgba(200,75,47,0.08)';
+    ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath(); ctx.arc(cx,cy,scaleR,0,Math.PI*2); ctx.fill();
+    ctx.globalCompositeOperation='source-over';
+  }
+  return cv;
+}
+
+function makeCard(typeClass, typeLabel, name, desc, canvas, footer) {
+  const card=document.createElement('div'); card.className=`result-card ${typeClass}`;
+  const hdr=document.createElement('div'); hdr.className='card-header';
+  hdr.innerHTML=`<p class="card-type ${typeClass.split('-')[0]}">${typeLabel}</p><p class="card-name">${name}</p>${desc?`<p class="card-desc">${desc}</p>`:''}`;
+  const cw=document.createElement('div'); cw.className='card-canvas';
+  canvas.style.cssText='width:100%;height:auto;image-rendering:auto;display:block;';
+  cw.appendChild(canvas);
+  const ft=document.createElement('div'); ft.className='card-footer';
+  ft.innerHTML=`<span>${canvas.width}×${canvas.height}px</span><span>${footer||''}</span>`;
+  card.appendChild(hdr); card.appendChild(cw); card.appendChild(ft);
+  return card;
+}
+
+function runFilter() {
+  if(!srcImageData){alert('先に画像を選択してください。');return;}
+  const main=document.getElementById('mainContent');
+  document.getElementById('emptyState')?.remove();
+  main.innerHTML='<div class="info-bar">FFT 計算中… しばらくお待ちください</div>';
+  setTimeout(()=>{
+    const isColor=document.getElementById('toggleColor').checked;
+    const W=srcImageData.width, H=srcImageData.height;
+    const lpfR=parseInt(document.getElementById('slLPF').value);
+    const hpfR=parseInt(document.getElementById('slHPF').value);
+
+    let lpfResult, hpfResult, origCanvas;
+    if (isColor) {
+      lpfResult=freqFilterColor(srcImageData,W,H,'low',lpfR);
+      hpfResult=freqFilterColor(srcImageData,W,H,'high',hpfR);
+      origCanvas=origToCanvas(srcImageData);
+    } else {
+      const {gray}=toGray(srcImageData);
+      lpfResult=freqFilter(gray,W,H,'low',lpfR);
+      hpfResult=freqFilter(gray,W,H,'high',hpfR);
+      origCanvas=grayToCanvas(gray,W,H);
+    }
+
+    main.innerHTML='';
+
+    const info=document.createElement('div'); info.className='info-bar';
+    info.innerHTML=`
+      <span style="color:var(--ink);">${W}×${H}px</span>
+      <span>LPF 半径: ${lpfR}</span>
+      <span>HPF 半径: ${hpfR}</span>
+      <span style="margin-left:auto;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;background:${isColor?'rgba(47,107,200,.12)':'rgba(100,100,100,.1)'};color:${isColor?'var(--accent)':'var(--ink3)'};">${isColor?'COLOR':'GRAYSCALE'}</span>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="legend-item"><div class="legend-pip" style="background:#2a9e6a;"></div>ローパス</div>
+        <div class="legend-item"><div class="legend-pip" style="background:#c84b2f;"></div>ハイパス</div>
+        <div class="legend-item"><div class="legend-pip" style="background:var(--accent);"></div>スペクトル</div>
+      </div>`;
+    main.appendChild(info);
+
+    // Row 1: original + spectra (spectrum uses first channel / gray)
+    const r1=document.createElement('div'); r1.className='triple-row';
+    r1.appendChild(makeCard('orig-card','ORIGINAL',isColor?'元画像（カラー）':'元画像（グレースケール）','',origCanvas,''));
+    r1.appendChild(makeCard('spec-card','SPECTRUM','LPF パワースペクトル',`カットオフ半径 ${lpfR}（緑円=通過域）`,drawSpectrum(lpfResult.magOrig,lpfResult.PW,lpfResult.PH,W,H,'low',lpfR),'log scale'));
+    r1.appendChild(makeCard('spec-card','SPECTRUM','HPF パワースペクトル',`カットオフ半径 ${hpfR}（赤円=除去域）`,drawSpectrum(hpfResult.magOrig,hpfResult.PW,hpfResult.PH,W,H,'high',hpfR),'log scale'));
+    main.appendChild(r1);
+
+    // Row 2: results
+    const r2=document.createElement('div'); r2.className='compare-row';
+    if(showLPF){
+      const lpfCanvas=isColor?rgbToCanvas(lpfResult.R,lpfResult.G,lpfResult.B,W,H):grayToCanvas(lpfResult.out,W,H);
+      r2.appendChild(makeCard('lpf-card','LOW-PASS FILTER','ローパスフィルタ',`カットオフ半径 = ${lpfR} ／ 低周波成分のみ通過`,lpfCanvas,'2D FFT → mask → IFFT'));
+    }
+    if(showHPF){
+      const hpfCanvas=isColor?rgbToCanvas(hpfResult.R,hpfResult.G,hpfResult.B,W,H):grayToCanvas(hpfResult.out,W,H);
+      r2.appendChild(makeCard('hpf-card','HIGH-PASS FILTER','ハイパスフィルタ',`カットオフ半径 = ${hpfR} ／ 高周波成分のみ通過`,hpfCanvas,'2D FFT → mask → IFFT'));
+    }
+    if(!showLPF&&!showHPF){
+      const msg=document.createElement('div'); msg.className='info-bar';
+      msg.textContent='フィルタタイプを1つ以上選択してください'; main.appendChild(msg);
+    } else {
+      main.appendChild(r2);
+    }
+  },30);
+}
+
+</script>
+</body>
+</html>
