@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kernel Filter Studio</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+:root {
+  --bg:#f2f0eb; --bg2:#e8e5de; --bg3:#dedad1;
+  --surface:#ffffff; --ink:#1a1814; --ink2:#6b6760; --ink3:#a8a49e;
+  --accent:#2a9e6a; --accent2:#2f6bc8; --border:rgba(26,24,20,.10); --border2:rgba(26,24,20,.06);
+  --mono:'Space Mono',monospace; --sans:'DM Sans',sans-serif; --radius:6px;
+  --shadow:0 2px 12px rgba(26,24,20,.08),0 1px 3px rgba(26,24,20,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:100vh;font-size:13px;line-height:1.5;}
+header{background:var(--ink);color:#fff;padding:0 28px;height:50px;display:flex;align-items:center;gap:16px;}
+header h1{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.htag{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.05em;margin-left:auto;}
+.app{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 50px);}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+.sec-head{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);padding-bottom:5px;border-bottom:1px solid var(--border);}
+.upload-zone{border:1.5px dashed var(--border2);border-radius:var(--radius);padding:18px 10px;text-align:center;cursor:pointer;background:var(--bg2);position:relative;transition:all .2s;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(42,158,106,.04);}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-hint{font-size:11px;color:var(--ink2);line-height:1.6;}
+.upload-hint strong{color:var(--accent);}
+.thumb-wrap{display:none;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:#000;aspect-ratio:1;max-height:160px;}
+.thumb-wrap img{width:100%;height:100%;object-fit:contain;display:block;}
+.divider{height:1px;background:var(--border);}
+.preset-row{display:flex;flex-wrap:wrap;gap:4px;}
+.pbtn{font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid var(--border);background:var(--bg2);color:var(--ink2);cursor:pointer;transition:all .13s;}
+.pbtn:hover{border-color:var(--accent2);color:var(--accent2);}
+.pbtn.active{background:var(--accent2);border-color:var(--accent2);color:#fff;}
+.kernel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+.kernel-grid input[type=number]{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--ink);font-family:var(--mono);font-size:13px;text-align:center;padding:6px 2px;outline:none;-moz-appearance:textfield;transition:border-color .15s;}
+.kernel-grid input[type=number]::-webkit-inner-spin-button,.kernel-grid input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}
+.kernel-grid input[type=number]:focus{border-color:var(--accent2);background:#fff;}
+.run-btn{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .15s;}
+.run-btn:hover{background:#1f8055;transform:translateY(-1px);box-shadow:var(--shadow);}
+.run-btn:active{transform:translateY(0);}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--ink2);}
+.toggle{position:relative;width:32px;height:18px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;position:absolute;}
+.toggle-track{position:absolute;inset:0;background:var(--bg3);border-radius:9px;cursor:pointer;transition:background .2s;}
+.toggle input:checked+.toggle-track{background:var(--accent2);}
+.toggle-track::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.toggle input:checked+.toggle-track::after{transform:translateX(14px);}
+.content{padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;}
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--ink3);text-align:center;padding:60px 20px;}
+.empty-icon{font-size:44px;opacity:.25;}
+.empty-title{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
+.empty-desc{font-size:12px;line-height:1.7;max-width:280px;}
+.results-area{display:flex;flex-direction:column;gap:16px;}
+.compare-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;}
+.result-card.orig-card{border-top:3px solid var(--ink3);}
+.result-card.kernel-card{border-top:3px solid var(--accent);}
+.card-header{padding:8px 10px 6px;}
+.card-type{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px;color:var(--ink3);}
+.card-type.k{color:var(--accent);}
+.card-name{font-size:12px;font-weight:600;color:var(--ink);}
+.card-desc{font-size:10px;color:var(--ink2);margin-top:2px;}
+.card-canvas{flex:1;background:#111;display:flex;align-items:center;justify-content:center;}
+.card-canvas canvas{display:block;width:100%;height:auto;}
+.card-footer{padding:5px 10px;border-top:1px solid var(--border2);font-family:var(--mono);font-size:9px;color:var(--ink3);display:flex;justify-content:space-between;}
+.info-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:10px;color:var(--ink2);}
+.kernel-viz{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:8px;}
+.kv-cell{border-radius:3px;height:36px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:700;transition:background .2s;}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Kernel Filter Studio</h1>
+  <span class="htag">空間フィルタ（カーネル畳み込み）ツール</span>
+</header>
+<div class="app">
+  <aside class="sidebar">
+
+    <div>
+      <p class="sec-head">入力画像</p>
+      <div style="margin-top:8px;">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="image/*">
+          <div style="font-size:20px;opacity:.4;margin-bottom:5px;">⬆</div>
+          <div class="upload-hint">クリックまたは<strong>ドラッグ＆ドロップ</strong></div>
+        </div>
+      </div>
+      <div class="thumb-wrap" id="thumbWrap" style="margin-top:8px;"><img id="thumbImg" alt=""></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <p class="sec-head" style="color:var(--accent);">カーネル設定</p>
+      <div style="margin-top:8px;">
+        <p style="font-size:10px;color:var(--ink3);margin-bottom:5px;">プリセット</p>
+        <div class="preset-row">
+          <button class="pbtn active" id="pr_smooth3"   onclick="loadPreset('smooth3')">平滑化</button>
+          <button class="pbtn"        id="pr_gaussian"  onclick="loadPreset('gaussian')">ガウシアン</button>
+          <button class="pbtn"        id="pr_sharpen"   onclick="loadPreset('sharpen')">鮮鋭化</button>
+          <button class="pbtn"        id="pr_sobel_x"   onclick="loadPreset('sobel_x')">Sobel X</button>
+          <button class="pbtn"        id="pr_sobel_y"   onclick="loadPreset('sobel_y')">Sobel Y</button>
+          <button class="pbtn"        id="pr_laplacian" onclick="loadPreset('laplacian')">Laplacian 4近傍</button>
+          <button class="pbtn"        id="pr_laplacian8" onclick="loadPreset('laplacian8')">Laplacian 8近傍</button>
+          <button class="pbtn"        id="pr_emboss"    onclick="loadPreset('emboss')">エンボス</button>
+          <button class="pbtn"        id="pr_custom"    onclick="loadPreset('custom')">カスタム</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <p style="font-size:10px;color:var(--ink3);margin-bottom:5px;">カーネル行列（3×3）— 直接編集可</p>
+        <div class="kernel-grid" id="kernelGrid"></div>
+        <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:10px;color:var(--ink3);">
+          <span>合計: <span id="kernelSum" style="font-family:var(--mono);color:var(--ink);">—</span></span>
+          <span id="kernelNormNote" style="font-family:var(--mono);"></span>
+        </div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <p style="font-size:10px;color:var(--ink3);margin-bottom:5px;">カーネル可視化（値の大小→色）</p>
+        <div class="kernel-viz" id="kernelViz"></div>
+      </div>
+
+      <div class="toggle-row" style="margin-top:10px;">
+        <span>出力を自動正規化</span>
+        <label class="toggle"><input type="checkbox" id="toggleNorm" checked><span class="toggle-track"></span></label>
+      </div>
+      <div class="toggle-row" style="margin-top:8px;">
+        <span>カラーで処理（RGBチャンネル別）</span>
+        <label class="toggle"><input type="checkbox" id="toggleColor"><span class="toggle-track"></span></label>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <button class="run-btn" onclick="runFilter()">▶ フィルタ実行</button>
+    <div style="font-size:10px;color:var(--ink3);line-height:1.7;">
+      画像を選択しフィルタを実行すると、元画像とフィルタ結果を並べて比較できます。カーネルを変えて再実行できます。
+    </div>
+  </aside>
+
+  <main class="content" id="mainContent">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">◈</div>
+      <p class="empty-title">Kernel Filter Studio</p>
+      <p class="empty-desc">画像を読み込んでカーネルを設定し、「フィルタ実行」を押してください。元画像と結果を並べて比較できます。</p>
+    </div>
+  </main>
+</div>
+<canvas id="srcCanvas" style="display:none;"></canvas>
+
+<script>
+let srcImageData = null, srcW = 0, srcH = 0;
+let currentPreset = 'smooth3';
+
+const PRESETS = {
+  smooth3:   { name:'平滑化 3×3',   k:[1,1,1,1,1,1,1,1,1], div:9,  desc:'均一平均（ボックスフィルタ）' },
+  gaussian:  { name:'ガウシアン',    k:[1,2,1,2,4,2,1,2,1], div:16, desc:'ガウシアンぼかし σ≈0.85' },
+  sharpen:   { name:'鮮鋭化',       k:[0,-1,0,-1,5,-1,0,-1,0], div:1, desc:'ラプラシアン鮮鋭化' },
+  sobel_x:   { name:'Sobel X',     k:[-1,0,1,-2,0,2,-1,0,1], div:1, desc:'水平方向エッジ検出' },
+  sobel_y:   { name:'Sobel Y',     k:[-1,-2,-1,0,0,0,1,2,1], div:1, desc:'垂直方向エッジ検出' },
+  laplacian: { name:'Laplacian 4近傍', k:[0,1,0,1,-4,1,0,1,0],  div:1, desc:'上下左右4近傍エッジ検出（2次微分）' },
+  laplacian8: { name:'Laplacian 8近傍', k:[1,1,1,1,-8,1,1,1,1],  div:1, desc:'8近傍全方向エッジ検出（斜め方向も含む）' },
+  emboss:    { name:'エンボス',     k:[-2,-1,0,-1,1,1,0,1,2], div:1, desc:'浮き彫り効果' },
+  custom:    { name:'カスタム',     k:[0,0,0,0,1,0,0,0,0],  div:1, desc:'自由に編集' },
+};
+
+// ---- Kernel UI ----
+function buildKernelGrid() {
+  const g = document.getElementById('kernelGrid');
+  g.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const inp = document.createElement('input');
+    inp.type='number'; inp.step='any'; inp.value='0'; inp.id='k'+i;
+    inp.addEventListener('input', () => {
+      currentPreset='custom';
+      document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
+      document.getElementById('pr_custom').classList.add('active');
+      updateKernelInfo(); updateKernelViz();
+    });
+    g.appendChild(inp);
+  }
+  buildKernelViz();
+}
+
+function buildKernelViz() {
+  const v = document.getElementById('kernelViz');
+  v.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const cell = document.createElement('div');
+    cell.className='kv-cell'; cell.id='kvc'+i;
+    v.appendChild(cell);
+  }
+}
+
+function updateKernelViz() {
+  const k = getKernel();
+  const mx = Math.max(...k.map(Math.abs)) || 1;
+  for (let i=0;i<9;i++) {
+    const v = k[i]/mx; // -1..1
+    const cell = document.getElementById('kvc'+i);
+    let bg, tc;
+    if (v > 0) { const a = Math.round(v*180); bg=`rgba(42,158,106,${v*0.7+0.1})`; tc=a>80?'#fff':'#1a4d30'; }
+    else if (v < 0) { const a = Math.round(-v*180); bg=`rgba(200,75,47,${-v*0.7+0.1})`; tc=a>80?'#fff':'#4d1a0f'; }
+    else { bg='rgba(100,100,100,0.08)'; tc='var(--ink3)'; }
+    cell.style.background = bg;
+    cell.style.color = tc;
+    cell.textContent = k[i] % 1 === 0 ? k[i] : k[i].toFixed(2);
+  }
+}
+
+function setKernel(values) {
+  for (let i=0;i<9;i++) document.getElementById('k'+i).value = values[i];
+  updateKernelInfo(); updateKernelViz();
+}
+
+function getKernel() {
+  return Array.from({length:9},(_,i)=>parseFloat(document.getElementById('k'+i).value)||0);
+}
+
+function updateKernelInfo() {
+  const k=getKernel(), sum=k.reduce((a,b)=>a+b,0);
+  document.getElementById('kernelSum').textContent=sum.toFixed(3);
+  const n=document.getElementById('kernelNormNote');
+  if(Math.abs(sum)<0.001) n.textContent='エッジ/差分系';
+  else if(Math.abs(sum-1)<0.01) n.textContent='正規化済み';
+  else n.textContent=`÷${sum.toFixed(1)}が必要`;
+}
+
+function loadPreset(name) {
+  currentPreset=name;
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pr_'+name).classList.add('active');
+  setKernel(PRESETS[name].k);
+}
+
+
+function setSourceImage(canvas) {
+  const maxDim=512;
+  let dw=canvas.width, dh=canvas.height;
+  if(dw>maxDim||dh>maxDim){const sc=maxDim/Math.max(dw,dh);dw=Math.round(dw*sc);dh=Math.round(dh*sc);}
+  const sc=document.getElementById('srcCanvas');
+  sc.width=dw; sc.height=dh;
+  sc.getContext('2d').drawImage(canvas,0,0,dw,dh);
+  srcImageData=sc.getContext('2d').getImageData(0,0,dw,dh);
+  srcW=dw; srcH=dh;
+  const tw=document.getElementById('thumbWrap'), ti=document.getElementById('thumbImg');
+  ti.src=canvas.toDataURL(); tw.style.display='block';
+}
+
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const cv=document.createElement('canvas'); cv.width=img.width; cv.height=img.height;
+      cv.getContext('2d').drawImage(img,0,0); setSourceImage(cv);
+    }; img.src=ev.target.result;
+  }; reader.readAsDataURL(file);
+});
+
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
+zone.addEventListener('drop',e=>{
+  e.preventDefault(); zone.classList.remove('drag');
+  const file=e.dataTransfer.files[0];
+  if(!file||!file.type.startsWith('image/')) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const cv=document.createElement('canvas'); cv.width=img.width; cv.height=img.height;
+      cv.getContext('2d').drawImage(img,0,0); setSourceImage(cv);
+    }; img.src=ev.target.result;
+  }; reader.readAsDataURL(file);
+});
+
+// ---- Processing ----
+function toGray(imageData) {
+  const W=imageData.width, H=imageData.height, gray=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++) gray[i]=0.299*imageData.data[i*4]+0.587*imageData.data[i*4+1]+0.114*imageData.data[i*4+2];
+  return {gray,W,H};
+}
+
+function convolve(gray, W, H, kernel, size, divisor, normalize) {
+  const half=Math.floor(size/2), out=new Float32Array(W*H);
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) {
+    let sum=0;
+    for(let ky=0;ky<size;ky++) for(let kx=0;kx<size;kx++) {
+      const sy=Math.min(H-1,Math.max(0,y+ky-half));
+      const sx=Math.min(W-1,Math.max(0,x+kx-half));
+      sum+=gray[sy*W+sx]*kernel[ky*size+kx];
+    }
+    out[y*W+x]=divisor!==1?sum/divisor:sum;
+  }
+  if(normalize){
+    let mn=Infinity,mx=-Infinity;
+    for(const v of out){if(v<mn)mn=v;if(v>mx)mx=v;}
+    const rng=mx-mn||1;
+    for(let i=0;i<out.length;i++) out[i]=(out[i]-mn)/rng*255;
+  } else {
+    for(let i=0;i<out.length;i++) out[i]=Math.max(0,Math.min(255,out[i]));
+  }
+  return out;
+}
+
+function grayToCanvas(gray, W, H) {
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d'), id=ctx.createImageData(W,H);
+  for(let i=0;i<W*H;i++){
+    const v=Math.round(Math.max(0,Math.min(255,gray[i])));
+    id.data[i*4]=v; id.data[i*4+1]=v; id.data[i*4+2]=v; id.data[i*4+3]=255;
+  }
+  ctx.putImageData(id,0,0); return cv;
+}
+
+// Extract one channel from imageData as Float32Array
+function extractChannel(imageData, ch) {
+  const W=imageData.width, H=imageData.height, out=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++) out[i]=imageData.data[i*4+ch];
+  return out;
+}
+
+// Merge R,G,B channels into a canvas
+function rgbToCanvas(R, G, B, W, H) {
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d'), id=ctx.createImageData(W,H);
+  for(let i=0;i<W*H;i++){
+    id.data[i*4]  =Math.round(Math.max(0,Math.min(255,R[i])));
+    id.data[i*4+1]=Math.round(Math.max(0,Math.min(255,G[i])));
+    id.data[i*4+2]=Math.round(Math.max(0,Math.min(255,B[i])));
+    id.data[i*4+3]=255;
+  }
+  ctx.putImageData(id,0,0); return cv;
+}
+
+// Color-preserving original canvas (no gray conversion)
+function origToCanvas(imageData) {
+  const cv=document.createElement('canvas'); cv.width=imageData.width; cv.height=imageData.height;
+  cv.getContext('2d').putImageData(imageData,0,0); return cv;
+}
+
+function makeCard(typeClass, typeLabel, name, desc, canvas, footer) {
+  const card=document.createElement('div');
+  card.className=`result-card ${typeClass}`;
+  card.innerHTML=`<div class="card-header"><p class="card-type ${typeClass==='kernel-card'?'k':''}">${typeLabel}</p><p class="card-name">${name}</p>${desc?`<p class="card-desc">${desc}</p>`:''}</div>`;
+  const wrap=document.createElement('div'); wrap.className='card-canvas';
+  canvas.style.cssText='width:100%;height:auto;image-rendering:auto;display:block;';
+  wrap.appendChild(canvas); card.appendChild(wrap);
+  card.innerHTML+=`<div class="card-footer"><span>${canvas.width}×${canvas.height}px</span><span>${footer||''}</span></div>`;
+  card.querySelector('.card-canvas').appendChild(canvas);
+  // rebuild since innerHTML reset
+  const rebuilt=document.createElement('div');
+  rebuilt.className=`result-card ${typeClass}`;
+  const hdr=document.createElement('div'); hdr.className='card-header';
+  hdr.innerHTML=`<p class="card-type ${typeClass==='kernel-card'?'k':''}">${typeLabel}</p><p class="card-name">${name}</p>${desc?`<p class="card-desc">${desc}</p>`:''}`;
+  const cw=document.createElement('div'); cw.className='card-canvas';
+  canvas.style.cssText='width:100%;height:auto;image-rendering:auto;display:block;';
+  cw.appendChild(canvas);
+  const ft=document.createElement('div'); ft.className='card-footer';
+  ft.innerHTML=`<span>${canvas.width}×${canvas.height}px</span><span>${footer||''}</span>`;
+  rebuilt.appendChild(hdr); rebuilt.appendChild(cw); rebuilt.appendChild(ft);
+  return rebuilt;
+}
+
+function runFilter() {
+  if(!srcImageData){alert('先に画像を選択してください。');return;}
+  const main=document.getElementById('mainContent');
+  document.getElementById('emptyState')?.remove();
+  main.innerHTML='<div class="info-bar">処理中…</div>';
+  setTimeout(()=>{
+    const isColor=document.getElementById('toggleColor').checked;
+    const norm=document.getElementById('toggleNorm').checked;
+    const k=getKernel();
+    const p=PRESETS[currentPreset]||PRESETS['smooth3'];
+    const div=p.div||1;
+    const W=srcImageData.width, H=srcImageData.height;
+
+    let origCanvas, resultCanvas;
+    if (isColor) {
+      // Process each RGB channel independently
+      const R=extractChannel(srcImageData,0);
+      const G=extractChannel(srcImageData,1);
+      const B=extractChannel(srcImageData,2);
+      const rR=convolve(R,W,H,k,3,div,norm);
+      const rG=convolve(G,W,H,k,3,div,norm);
+      const rB=convolve(B,W,H,k,3,div,norm);
+      origCanvas=origToCanvas(srcImageData);
+      resultCanvas=rgbToCanvas(rR,rG,rB,W,H);
+    } else {
+      const {gray}=toGray(srcImageData);
+      origCanvas=grayToCanvas(gray,W,H);
+      resultCanvas=grayToCanvas(convolve(gray,W,H,k,3,div,norm),W,H);
+    }
+
+    main.innerHTML='';
+    const info=document.createElement('div'); info.className='info-bar';
+    const kernelStr=k.map(v=>v%1===0?v:v.toFixed(2)).join(', ');
+    info.innerHTML=`<span style="color:var(--ink);">${W}×${H}px</span><span>カーネル: [${kernelStr}]</span><span>合計: ${k.reduce((a,b)=>a+b,0).toFixed(2)} / 除数: ${div}</span><span style="margin-left:auto;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;background:${isColor?'rgba(47,107,200,.12)':'rgba(100,100,100,.1)'};color:${isColor?'var(--accent2)':'var(--ink3)'};">${isColor?'COLOR':'GRAYSCALE'}</span>`;
+    main.appendChild(info);
+
+    const row=document.createElement('div'); row.className='compare-row';
+    row.appendChild(makeCard('orig-card','ORIGINAL',isColor?'元画像（カラー）':'元画像（グレースケール）','',origCanvas,''));
+    row.appendChild(makeCard('kernel-card','SPATIAL FILTER',p.name,p.desc,resultCanvas,'3×3 convolution'));
+    main.appendChild(row);
+
+    // Kernel visualization panel
+    const vizCard=document.createElement('div'); vizCard.className='result-card';
+    vizCard.style.cssText='grid-column:1/-1;padding:14px;';
+    const kvGrid=document.createElement('div');
+    kvGrid.style.cssText='display:inline-grid;grid-template-columns:repeat(3,56px);gap:4px;';
+    const mx=Math.max(...k.map(Math.abs))||1;
+    const labels=['↖','↑','↗','←','·','→','↙','↓','↘'];
+    k.forEach((v,i)=>{
+      const cell=document.createElement('div');
+      cell.style.cssText='border-radius:4px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-family:var(--mono);';
+      const ratio=v/mx;
+      cell.style.background=v>0?`rgba(42,158,106,${ratio*0.65+0.08})`:v<0?`rgba(200,75,47,${-ratio*0.65+0.08})`:'rgba(100,100,100,0.07)';
+      cell.innerHTML=`<span style="font-size:9px;opacity:.4;">${labels[i]}</span><span style="font-size:14px;font-weight:700;">${v%1===0?v:v.toFixed(2)}</span>`;
+      kvGrid.appendChild(cell);
+    });
+    const vizWrap=document.createElement('div'); vizWrap.style.cssText='display:flex;align-items:center;gap:24px;';
+    const vizLabel=document.createElement('div');
+    vizLabel.innerHTML=`<p style="font-family:var(--mono);font-size:9px;color:var(--ink3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">カーネル可視化</p>${kvGrid.outerHTML}<p style="font-size:10px;color:var(--ink3);margin-top:6px;">緑=正の重み　赤=負の重み　サイズ=絶対値の大きさ</p>`;
+    vizCard.appendChild(vizLabel);
+    main.appendChild(vizCard);
+  },30);
+}
+
+buildKernelGrid();
+loadPreset('smooth3');
+</script>
+</body>
+</html>
